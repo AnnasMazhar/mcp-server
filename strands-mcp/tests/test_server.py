@@ -150,3 +150,33 @@ class TestFetchDocErrors:
         tru_result = fetch_doc(uri="https://strandsagents.com/missing.md")
 
         assert tru_result["error"] == "fetch failed"
+
+
+@patch("strands_mcp_server.server.cache")
+class TestNoSectionsTruncation:
+    """Tests that the no_sections fallback caps content at SMALL_DOC_THRESHOLD.
+
+    When a document has no parseable markdown headers (common with HTML-converted
+    pages), the content should be truncated at SMALL_DOC_THRESHOLD instead of
+    being returned in full.
+    """
+
+    def test_no_h2_oversize_doc_truncated(self, mock_cache, no_h2_doc):
+        """Large doc without ## headers returns capped content."""
+        mock_cache.ensure_page.return_value = Page(
+            url="https://strandsagents.com/no-h2.md",
+            title="No H2 Doc",
+            content=no_h2_doc,
+        )
+
+        tru_result = fetch_doc(uri="https://strandsagents.com/no-h2.md")
+
+        assert tru_result["document_small"] is True
+        assert tru_result["reason"] == "no_sections"
+        assert "content" in tru_result
+        assert "sections" not in tru_result
+        # Content must be capped at SMALL_DOC_THRESHOLD
+        from strands_mcp_server.utils.text_processor import SMALL_DOC_THRESHOLD
+
+        assert len(tru_result["content"]) <= SMALL_DOC_THRESHOLD
+        assert len(tru_result["content"]) < len(no_h2_doc)

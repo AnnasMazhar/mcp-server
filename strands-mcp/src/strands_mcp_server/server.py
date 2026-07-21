@@ -158,14 +158,16 @@ def fetch_doc(uri: str = "", section: str = "") -> Dict[str, Any]:
 
     sections = text_processor.parse_sections(page.content)
 
-    # No parseable sections: treat as small doc regardless of size
+    # No parseable sections: cap at SMALL_DOC_THRESHOLD
+    # to prevent unbounded context injection from structureless docs
     if not sections:
+        truncated = page.content[:text_processor.SMALL_DOC_THRESHOLD]
         return {
             "url": uri,
             "title": page.title,
             "document_small": True,
             "reason": "no_sections",
-            "content": page.content,
+            "content": truncated,
         }
 
     # Section mode: extract specific section
